@@ -78,7 +78,8 @@
 #include "src/OTA/OTA.h"
 #include "src/Logger/Logger.h"
 #include "time.h"
-
+#include "src/growPartition/growPartition.h"
+#include <esp_ota_ops.h>
 
 #if  RADIOLIB_VERSION_MAJOR != (0x07) || RADIOLIB_VERSION_MINOR != (0x01) || RADIOLIB_VERSION_PATCH != (0x02) || RADIOLIB_VERSION_EXTRA != (0x00)
 #error "You are not using the correct version of RadioLib please copy TinyGS/lib/RadioLib on Arduino/libraries"
@@ -168,9 +169,10 @@ void setup()
 }
 
 unsigned long lastTleRefresh = 0;
+bool partitionGrownExecuted = false;
 
-void loop() {  
-  configManager.doLoop();
+void loop () {
+    configManager.doLoop ();
   if (configManager.isFailSafeActive())
   {
     static bool updateAttepted = false;
@@ -212,10 +214,22 @@ void loop() {
   }
 
   // connected
-
   mqtt.loop();
   OTA::loop();
   if (configManager.getOledBright() != 0) displayUpdate();
+
+  // grow partition
+  if (!partitionGrownExecuted) {
+      GrowPartition growPartition;
+      if (growPartition.grow ()) {
+          Log::console (PSTR ("Partition grown successfully!"));
+          mqtt.publish ("tinygs/global/station/tele", "Partition grown", false); // Cambiar topic
+          vTaskDelay (pdMS_TO_TICKS (500));
+          esp_ota_mark_app_invalid_rollback_and_reboot ();
+          esp_restart ();
+      }
+      partitionGrownExecuted = true; //Try it only once
+  }
   
   // Update TLE
   unsigned long currentTime = millis();
