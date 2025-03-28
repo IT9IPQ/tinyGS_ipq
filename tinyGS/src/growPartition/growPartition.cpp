@@ -72,7 +72,7 @@ esp_err_t GrowPartition::replace_partition_table() {
 
 bool GrowPartition::running_from_ota1() {
     const esp_partition_t* running_partition = esp_ota_get_running_partition();
-    return strcmp(running_partition->label, "ota_1") == 0;
+    return  ;
 }
 
 bool GrowPartition::invalid_or_already_written() {

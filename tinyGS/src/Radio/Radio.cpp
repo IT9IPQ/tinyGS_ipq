@@ -727,7 +727,7 @@ int16_t Radio::remoteSetFreqOffset(char *payload, size_t payload_len)
   return RADIOLIB_ERR_NONE;
 }
 
-int16_t Radio::remote_bw(char *payload, size_t payload_len)
+/* int16_t Radio::remote_bw(char *payload, size_t payload_len)
 {
   float bw = _atof(payload, payload_len);
   Log::console(PSTR("Set bandwidth: %.3f MHz"), bw);
@@ -946,7 +946,7 @@ int16_t Radio::remote_pl(char *payload, size_t payload_len)
     status.modeminfo.preambleLength = pl;
 
   return state;
-}
+}*/
 
 int16_t Radio::remote_begin_lora(char *payload, size_t payload_len)
 {
@@ -1070,7 +1070,7 @@ int16_t Radio::remote_begin_fsk(char *payload, size_t payload_len)
   return state;
 }
 
-int16_t Radio::remote_br(char *payload, size_t payload_len)
+/*int16_t Radio::remote_br(char *payload, size_t payload_len)
 {
   uint8_t br = _atoi(payload, payload_len);
   Log::console(PSTR("Set FSK Bit rate: %u"), br);
@@ -1274,7 +1274,7 @@ int16_t Radio::remote_SPIsetRegValue(char *payload, size_t payload_len)
 
     readState(state);
   return state;
-}
+}*/
 
 double Radio::_atof(const char *buff, size_t length)
 {

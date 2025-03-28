@@ -31,7 +31,8 @@ MQTT_Client::MQTT_Client()
     : PubSubClient(espClient)
 {
 #ifdef SECURE_MQTT
-  espClient.setCACert(usingNewCert ? newRoot_CA : DSTroot_CA);
+  // espClient.setCACert(usingNewCert ? newRoot_CA : DSTroot_CA);
+    espClient.setCACert (newRoot_CA);
 #endif
   randomTime = random(randomTimeMax - randomTimeMin) + randomTimeMin;
 }
@@ -138,9 +139,9 @@ void MQTT_Client::reconnect()
         if (connectionAtempts > 3)
         {
 #ifdef SECURE_MQTT
-          if (usingNewCert)
+          /*if (usingNewCert)
             espClient.setCACert(DSTroot_CA);
-          else
+          else*/
             espClient.setCACert(newRoot_CA);
           usingNewCert = !usingNewCert;
 #endif
@@ -600,7 +601,7 @@ void MQTT_Client::manageMQTTData(char *topic, uint8_t *payload, unsigned int len
   if (!strcmp(command, commandFreq))
     result = radio.remote_freq((char *)payload, length);
 
-  if (!strcmp(command, commandBw))
+  /*if (!strcmp(command, commandBw))
     result = radio.remote_bw((char *)payload, length);
 
   if (!strcmp(command, commandSf))
@@ -640,7 +641,7 @@ void MQTT_Client::manageMQTTData(char *topic, uint8_t *payload, unsigned int len
 
   // Remote_FSK_Set_OOK + DataShapingOOK(only sx1278) [1,2]
   if (!strcmp(command, commandFook))
-    result = radio.remote_fook((char *)payload, length);
+    result = radio.remote_fook((char *)payload, length);*/
 
   // Remote_Satellite_Name [\"FossaSat-3\" , 46494 ]
   if (!strcmp(command, commandSat))
@@ -717,6 +718,7 @@ void MQTT_Client::manageMQTTData(char *topic, uint8_t *payload, unsigned int len
     return;
   }
 
+  /*
   // GOD MODE  With great power comes great responsibility!
   // SPIsetRegValue  (only sx1278) [1,2,3,4,5]
   if (!strcmp(command, commandSPIsetRegValue))
@@ -810,7 +812,7 @@ void MQTT_Client::manageMQTTData(char *topic, uint8_t *payload, unsigned int len
         break;
       }
     }
-  }
+  }*/
 
   if (!global)
     publish(buildTopic(statTopic, command).c_str(), (uint8_t *)&result, 2U, false);

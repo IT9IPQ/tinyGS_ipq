@@ -3,7 +3,7 @@
 #ifndef CERTS_H
 #define CERTS_H
 
-static const char DSTroot_CA[] PROGMEM = R"EOF(
+/*static const char DSTroot_CA[] PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
 MIIDSjCCAjKgAwIBAgIQRK+wgNajJ7qJMDmGLvhAazANBgkqhkiG9w0BAQUFADA/
 MSQwIgYDVQQKExtEaWdpdGFsIFNpZ25hdHVyZSBUcnVzdCBDby4xFzAVBgNVBAMT
@@ -24,7 +24,7 @@ R8srzJmwN0jP41ZL9c8PDHIyh8bwRLtTcm1D9SZImlJnt1ir/md2cXjbDaJWFBM5
 JDGFoqgCWjBH4d1QB7wCCZAA62RjYJsWvIjJEubSfZGL+T0yjWW06XyxV3bqxbYo
 Ob8VZRzI9neWagqNdwvYkQsEjgfbKbYK7p2CNTUQ
 -----END CERTIFICATE-----
-)EOF";
+)EOF";*/
 static const char newRoot_CA[] PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
 MIIECzCCAvOgAwIBAgIUYk/dAJposMAtBtnP1V2d1YHekb4wDQYJKoZIhvcNAQEL
