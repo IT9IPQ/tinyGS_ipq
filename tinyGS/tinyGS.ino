@@ -322,7 +322,7 @@ void loop() {
   mqtt.loop();
   OTA::loop();
 
-  if (configManager.getOledBright () != 0) displayUpdate ();
+  displayUpdate ();
 
   if (configManager.askedWebLogin () && mqtt.connected ())
   {

@@ -46,7 +46,7 @@ unsigned long tick_interval;
 int tick_timing = 100;
 int graphVal = 1;
 int delta = 1;
-uint8_t oldOledBright = 100;
+uint8_t oldOledBright = -1; // to force brightness update on first run
 
 void displayInit()
 {
@@ -116,19 +116,6 @@ void msOverlay(OLEDDisplay *display, OLEDDisplayUiState* state)
   if (ConfigManager::getInstance().getDayNightOled())
   {
     if (timeinfo->tm_hour < 6 || timeinfo->tm_hour > 18) display->normalDisplay(); else display->invertDisplay(); // change the OLED according to the time. 
-  }
-
-
-  if (oldOledBright!=ConfigManager::getInstance().getOledBright())
-  {
-    oldOledBright = ConfigManager::getInstance().getOledBright(); 
-    if (ConfigManager::getInstance().getOledBright()==0) {
-      display->displayOff();
-    }
-    else
-    {
-      display->setBrightness(2*ConfigManager::getInstance().getOledBright());
-    }
   }
 }
 
@@ -348,15 +335,39 @@ void displayShowStaMode(bool ap)
   display->display();
 }
 
+/**
+ * Updates the display brightness based on the configuration.
+ * If the brightness has changed, it sets the new brightness or turns off the display.
+ * Also updates the UI if screen is on.
+ */
 void displayUpdate()
 {
-  if (ConfigManager::getInstance().getOledBright())
+  // Get the current OLED brightness from configuration
+  uint8_t oledBright = ConfigManager::getInstance().getOledBright();
+
+  // Check if brightness has changed
+  if (oldOledBright != oledBright) {
+    if (oledBright) {
+      // Set the new brightness
+      display->setBrightness(2*oledBright);
+    } else {
+      // Turn off the display if brightness is 0
+      displayTurnOff();
+    }
+    // Save the brightness value
+    oldOledBright = oledBright;
+  }
+
+  if (oledBright) {
+    // Update the UI if screen is on
     ui->update();
+  }
 }
 
 void displayTurnOff()
 {
   display->displayOff();
+  oldOledBright = 0;
 }
 
 void displayNextFrame() {
