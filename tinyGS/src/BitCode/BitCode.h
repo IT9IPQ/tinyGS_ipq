@@ -20,6 +20,7 @@
 #ifndef BITCODE_H
 #define BITCODE_H
 #include <stdint.h> //uint8_t
+#include <stdio.h> 
 
 class BitCode{
     public:
@@ -30,7 +31,8 @@ static void write_bit_on_byte(uint8_t *byte, int k, int dato);
 static int remove_bit_stuffing (uint8_t *entrada, size_t sizeEntrada, uint8_t *salidabin, size_t *sizeSalida);
 static void invierte_bits_de_un_byte(uint8_t br, uint8_t *bs);
 static void invierte_bytes_de_un_array(uint8_t *entrada, size_t sizeEntrada, uint8_t *salida, size_t *sizeSalida);
-static int nrz2ax25(uint8_t *entrada, size_t sizeEntrada,  uint8_t *ax25bin, size_t *sizeAx25bin);
+static int nrz2ax25(uint8_t *entrada, size_t sizeEntrada,  uint8_t *ax25bin, size_t *sizeAx25bin, uint8_t framing);
 static int pn9(uint8_t *entrada, size_t sizeEntrada, uint8_t *salida);
+static int descram1712(uint8_t *entrada, size_t sizeEntrada, uint8_t *salida);
 };
 #endif

@@ -19,7 +19,7 @@
 //////////////////////////////////////////////////////////////////////
 
  This is a brief explanation of the principle of operation perfomed
-  to extract an AX.25 frame from the packet received in FSK.
+ to extract an AX.25 frame from the packet received in FSK.
   
   For this to work there are several assumptions:
   
@@ -31,54 +31,14 @@
      be transmitted no change in the channel is performed, that is,
      frequency remains in f1 or in f2.  
   
-  3. Satellite is in f1 before transmitting the first ZERO, and then
-     change to f2 for that first ZERO, which in NRZ means to receive
-     a ONE.
-
-                             fd
-                           <----->
-                 / \      |      / \
-                  |               |
-                  |               |
-     --------------------------------------> f
-                          fc
-			  
-		  f1    --->     f2 (for sending first ZERO)
-		  
-  4. The RF Chip will be configured with a specific Synch Word to trigger 
+  3. The RF Chip will be configured with a specific Synch Word to trigger 
      the reception. Given that the satellite codify the information 
      transmitted in NRZS and the Chip receives in NRZ, the Synch Word 
-     has to be previously translated from NRZS to NRZ. In order to 
-     create the Synch Word first we take the flag 0x7E and the first two
-     bytes of data as transmitted by the satellite, and convert it to NRZ.
+     has to be previously translated from NRZS to NRZ. 
 
-     For a satellite transmitting 0x7E, 0x49 and 0X39 as first three bytes,
-     the synchword is calculated, assuming that for the first ZERO on the 
-     most significant bit of first byte 0x7E, a transition from ZERO to ONE
-     is needed, thus, the first bit on the left, in the first byte of the 
-     synchword is ONE. From this point on, any time a data ZERO is found, 
-     the bit in the synchword changes from 0->1 or from 1->0, keeping the 
-     previous state everytime a ONE is found in the data.
-     
-         7         E         4         9         3         9    
-      -------   -------   -------   -------   -------   -------   
-      0 1 1 1   1 1 1 0   0 1 0 0   1 0 0 1   0 0 1 1   1 0 0 1  <-- DATA
-     
-   0->1 1 1 1   1 1 1 0   1 1 0 1   1 0 1 1   0 1 1 1   1 0 1 1  <-- SW
-      -------   -------   -------   -------   -------   -------
-         F         E         D         B         7         B
-      -----------------   -----------------   -----------------   
-	     254                 219                  123
-
-     Synchword = [254, 219, 123]
-
-  5. The algorithm assumes that first byte of the synchword, which will
-     be added to the packet together with the rest of the synchword during 
-     the process, is always 0xFE (254), for this reason, as we can seen 
-     below, the first byte of the packet (0x7E) is skipped.
-     
-     When data packet is received, the process to extract the AX.25 frame 
-     is as follows:
+  4. When data packet is received, the bytes used as synchword will be 
+     added to the data packet received. The process to extract the AX.25 
+     frame is as follows:
    
                             NRZ
                                        \ \ ____
@@ -94,9 +54,9 @@
                ---------        ------        -------------------  
                                                        |
                                                       \|/
-                                            -----------------------
-                                           | SKIP FIRST 0X7E FLAG  |
-                                            -----------------------
+                                           -------------------------
+                                          | DETECT START FLAG 0X7E  |
+                                           -------------------------
                                                        |
                                                       \|/
                                              ---------------------
@@ -108,22 +68,18 @@
                                            | DETECT END FLAG 0X7E  |
                                             -----------------------
                                                        |
-                                                      \|/
- -------------------------       ----------------------------------- 
-| CALCULATE CRC & COMPARE | <-- | SPLIT FRAME INVERTED AX.25  & CRC |
- -------------------------       -----------------------------------   
+                                                       | 
+             _________________________________________\|/                                       
             |
-	   \|/
+	         \|/
  ------------------------------------------         -------------  
 | INVERT BITS FOR EACH BYTE OF AX.25 FRAME | ----> | FRAME AX.25 | 
  ------------------------------------------	        -------------      
  
 */
 //////////////////////////////////////////////////////////////////////*/
-#include <stdio.h>
 #include "BitCode.h"
-#include <stdint.h> //uint8_t
-
+#include "../Logger/Logger.h"
 //////////////////////////////////////////////////////////////////////
 //         BYTE
 //    8 7 6 5 4 3 2 1   <-- POSICION
@@ -164,7 +120,7 @@ size_t bini=0;
 
 void BitCode::write_bit_on_byte(unsigned char *byte, int k, int dato){
   unsigned char byte_aux = 1;
-  //Al rotar se introducen ceros por la derecha.
+  //Al desplazar (<<) se introducen ceros por la derecha.
   byte_aux = byte_aux << (k-1); 
   //Para setear a cero, hacemos una mascara complementado byte_aux para convetir los ceros en unos,
   //y el uno del bit a setear en cero. Al hacer el AND bit a bit, dejaremos lo demás bits como estan
@@ -181,81 +137,91 @@ int BitCode::remove_bit_stuffing (uint8_t *entrada, size_t sizeEntrada, uint8_t 
   int bit1=0;
   int bit2=0;
   int bit3=0;
+  int resinc=0;
   bool error_de_trama=true;
   bool flag_encontrado=false;
   bool saltar_un_bit=false;
-
+  bool almacenar=false;
   *sizeSalida=0;
   k=8;
-  //Start in i=0 if initial AX.25 flag was removed if not begin in i=1
-  byte_recibido=entrada[1];
+  byte_recibido=entrada[0];
   bit2=read_bit_from_byte(byte_recibido,8);
   bit3=read_bit_from_byte(byte_recibido,7);
   j=6;
-  for (int i=1;i<sizeEntrada;i++){
+  int i=0;
+  while(i<sizeEntrada){
     byte_recibido=entrada[i];
-    //Recorremos el byte recibido, bit a bit
     while (j>0){
       bit1=bit2;
       bit2=bit3;
       bit3=read_bit_from_byte(byte_recibido,j);
+      if (resinc>0){
+        resinc--;
+        saltar_un_bit=true;
+         }
       if (!saltar_un_bit && !flag_encontrado){
 	      if (bit1==0){
-          //Realmente no haría falta escribir un cero ya que el byte_procesado se inicializa a cero
-          //así que es lo mismo que mover el índice k.
-          write_bit_on_byte(&byte_procesado,k,0); //Escribe en en byte buffer, en el bit posición k, un cero.
-          k--; //Movemos el índice un bit a la derecha
+          if (almacenar) {write_bit_on_byte(&byte_procesado,k,0);}
+          k--;
           unos_seguidos=0;
-          //Comprobar si hemos llenado el byte buffer
           if (k==0){
-                salidabin[*sizeSalida]=byte_procesado;
-                (*sizeSalida)++;
+                if (almacenar) {
+                  salidabin[*sizeSalida]=byte_procesado;
+                  (*sizeSalida)++;
+                }
                 k=8;
                 byte_procesado=0;
                 } 
 	      }else{
-		  unos_seguidos++;
-		  write_bit_on_byte(&byte_procesado,k,1);//Escribe en byte buffer, en el bit posición k, un uno.
-		  k--;
-		  if (k==0){
-		      salidabin[*sizeSalida]=byte_procesado;
-		      (*sizeSalida)++;
-		      k=8;
-		      byte_procesado=0;
-		  } 
-		  if (unos_seguidos==5){
-		   if (bit2==1){//Si el sexto bit tambien es un 1 entonces ya habremos acabado (esto no se debería dar más que en el flag)
-		     j=0;i=sizeEntrada;//Dado que el siguiente bit al bit quinto no es un cero damos por terminada la trama
-		     if (bit3==0){
-		       flag_encontrado=true;
-		       //Si se llega al final de la trama AX.25, el numero de bytes ha de ser entero, con lo que
-		       //el ultimo octeto lo ocuparia el flag de fin de trama y la cuenta de "k" en el byte de 
-		       //almacenamiento deberia ser de "2" ya que se habrian almacenado los primeros 5 unos del flag
-		       //y "k" estaria apuntando al siguiente bit a almacenar.
-		       //          bit 1
-		       //          |
-		       //8 7 6 5 4 3 2 1
-		       //0 1 1 1 1 1 1 0
-		       //printf("k=%i\n",k);
-		       if (k==2) {error_de_trama=false;
-		       }else{
-		         error_de_trama=true;
-		       }	          
-		     }else{
-		       error_de_trama=true;
-		     }
-		   }else{  
-			unos_seguidos=0;//Hemos encontrado un bit de stuffing
-			saltar_un_bit=true;
-			}
-		 }          
+          unos_seguidos++;
+          if (almacenar) {write_bit_on_byte(&byte_procesado,k,1);}
+          k--;
+          if (k==0){
+            if (almacenar) {
+              salidabin[*sizeSalida]=byte_procesado;
+              (*sizeSalida)++;
+            }
+              k=8;
+              byte_procesado=0;
+          } 
+          if (unos_seguidos==5){
+          if (bit2==1){
+            j=0;
+            if (bit3==0){
+              flag_encontrado=true;
+              if (!almacenar){
+                almacenar=true;
+              }
+              if (*sizeSalida<16 || k!=2) {
+ 			          *sizeSalida=0;
+			          k=8;
+                error_de_trama=true;
+			          flag_encontrado=false;
+			          resinc=2;
+			        }else{
+				        if (k==2) {
+					        error_de_trama=false;
+		              i=sizeEntrada;
+		            }else{
+		              error_de_trama=true;
+		            }
+              }	     
+            }else{
+              error_de_trama=true;
+            }
+          }else{  
+            unos_seguidos=0;
+            saltar_un_bit=true;
+          }
+          }          
 	      }
       }else{
            saltar_un_bit=false;
            }
-      j--;//Apuntamos al siguiente bit del byte recibido
+      j--;
     }
     j=8;
+    i++;
   }
   if (flag_encontrado && !error_de_trama){
     return 0;}
@@ -289,37 +255,67 @@ void BitCode::invierte_bytes_de_un_array(uint8_t *entrada, size_t sizeEntrada, u
   }
 }
 
-int BitCode::nrz2ax25(uint8_t *entrada, size_t sizeEntrada, uint8_t *ax25bin, size_t *sizeAx25bin){
+int BitCode::nrz2ax25(uint8_t *entrada, size_t sizeEntrada, uint8_t *ax25bin, size_t *sizeAx25bin, uint8_t framing){
 
     char *ax25hdlc;
     char *texto;
+    uint8_t *scrambled;
     uint8_t *ax25hdlcbin;
     uint8_t *ax25invbin;
     uint8_t *ax25inv;
+    uint8_t *nrz;
+    size_t sizeScrambled=0;
     size_t sizeAx25inv=0;
     size_t sizeAx25invbin=0;
     size_t sizeAx25hdlcbin=0;
+    size_t sizeNrz=0;
     int bitstuff=0;
+    scrambled=new uint8_t[sizeEntrada];
     ax25hdlcbin = new uint8_t[sizeEntrada];
     ax25inv=new uint8_t[sizeEntrada];
     ax25hdlcbin=new uint8_t[sizeEntrada];
     ax25invbin=new uint8_t[sizeEntrada];
-    BitCode::nrz2nrzi(entrada,sizeEntrada,ax25hdlcbin,&sizeAx25hdlcbin);
+    nrz=new uint8_t[sizeEntrada];
+    if (sizeEntrada>=16){
+
+    if (framing==1){
+      BitCode::nrz2nrzi(entrada,sizeEntrada,ax25hdlcbin,&sizeAx25hdlcbin);
+    }
+
+    if (framing==3){
+      BitCode::descram1712(entrada,sizeEntrada,nrz);
+      //Log::console(PSTR("Raw Packet - Descrambled (x17x12)"));
+      //Log::log_packet_hex(nrz,sizeEntrada);
+      sizeNrz=sizeEntrada;
+      BitCode::nrz2nrzi(nrz,sizeNrz,ax25hdlcbin,&sizeAx25hdlcbin);
+    }
+
+    Log::console(PSTR("Decoded Packet"));
+    Log::log_packet_hex(ax25hdlcbin,sizeAx25hdlcbin);
     bitstuff=BitCode::remove_bit_stuffing(ax25hdlcbin,sizeAx25hdlcbin,ax25invbin,&sizeAx25invbin);
+    //Log::console(PSTR("Raw Packet - No bit stuffing"));
+    //Log::log_packet_hex(ax25invbin,sizeAx25invbin);
+	  BitCode::invierte_bytes_de_un_array(ax25invbin,sizeAx25invbin,ax25bin,sizeAx25bin);	
+    
     if (bitstuff==0){
-		  BitCode::invierte_bytes_de_un_array(ax25invbin,sizeAx25invbin,ax25bin,sizeAx25bin);	
       return 0;	  
 	  }else{
-	    *sizeAx25bin=12;
-       texto = new char[13];
-	     sprintf(texto,"Frame error!");
-       for (int i=0;i<(*sizeAx25bin);i++){
-	      ax25bin[i]=(char)texto[i];
-	    }
       return 1;
 	  }
-}
 
+    }else{
+      Log::console(PSTR("Packet size less than 16 bytes"));
+      return 1;
+    }
+ 
+    delete[] scrambled;
+    delete[] ax25hdlcbin;
+    delete[] ax25inv;
+    delete[] ax25hdlcbin;
+    delete[] ax25invbin;
+    delete[] nrz;
+    
+}
 
 /*  
     ////////////////////////////////////////////////////////////////
@@ -371,6 +367,35 @@ int BitCode::pn9(uint8_t *entrada, size_t sizeEntrada, uint8_t *salida){
 		    pn9 >>= 1;
         pn9 &= mask;
 	    }
+    }
+    return 0;
+  }
+
+    int BitCode::descram1712(uint8_t *entrada, size_t sizeEntrada, uint8_t *salida){
+ 
+    uint32_t lfsr =0x00000000;
+    uint8_t byte_recibido=0;
+    uint8_t byte_salida=0;
+    int bit=0;
+    int x1=0;
+    int indice_byte=0;
+    int indice_de_bit=8;
+    while (indice_byte<sizeEntrada){
+      byte_recibido=entrada[indice_byte];
+      indice_de_bit=8;
+      byte_salida=0;
+      
+      while (indice_de_bit>0){ 
+        x1=read_bit(lfsr,12)^read_bit(lfsr,17);
+        bit=read_bit_from_byte(byte_recibido,indice_de_bit);
+        write_bit_on_byte(&byte_salida,indice_de_bit,bit^x1);
+        lfsr=lfsr<<1;
+        write_bit(&lfsr,(int)1,bit); 
+        indice_de_bit--;
+      }
+      
+      salida[indice_byte]=byte_salida;
+      indice_byte++;
     }
     return 0;
   }

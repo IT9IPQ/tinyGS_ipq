@@ -152,7 +152,7 @@ void Log::log_packet(uint8_t *packet, size_t size){
   char* cadena = new char[longLinea+1];
   char* ascii = new char[bytes_per_line+1];
   int j=0; int k=0;
-  //Log::console(PSTR("Logging packet..."));
+  Log::console(PSTR("-----------------------------------------------------------------"));
   for (int i=0;i<size;i++){
       j=3*(i%bytes_per_line); //Index for the Hex Data
       k=(i%bytes_per_line); //Index for the ASCII Data
@@ -187,6 +187,7 @@ void Log::log_packet(uint8_t *packet, size_t size){
         ascii[0]=0;
         }
   }
+  Log::console(PSTR("-----------------------------------------------------------------"));
 }
 
 void Log::log_packet_hex(uint8_t *packet, size_t size){
