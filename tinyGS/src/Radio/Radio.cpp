@@ -506,7 +506,10 @@ uint8_t Radio::listen()
       if (modo=="FSK"){
       int bytes_sincro=0;
       int frame_error=0;
-      if (status.modeminfo.framing==1){ //framing=1 -> AX.25 Frame
+      if (status.modeminfo.framing==1  //framing=1 -> NRZS -> AX.25 Frame
+       || status.modeminfo.framing==3  //framing=3 -> Scrambled(x17x12) -> NRZS -> AX.25                       
+         ) 
+        {
         Log::console(PSTR("Processing AX.25 frame..."));
         // Add Synch Frame Word to the received data 
         for (int i=0;i<sizeof(status.modeminfo.fsw);i++){
@@ -524,10 +527,24 @@ uint8_t Radio::listen()
         uint8_t *ax25bin;
         size_t sizeAx25bin=0;
         ax25bin=new uint8_t[buffSize_pck];
-        frame_error=BitCode::nrz2ax25(respFrame_fsk,buffSize_pck,ax25bin,&sizeAx25bin);
+        frame_error=BitCode::nrz2ax25(respFrame_fsk,buffSize_pck,ax25bin,&sizeAx25bin,status.modeminfo.framing);
         delete[] respFrame_fsk; // Clean up respFrame_fsk
         if (frame_error!=0){
+          if (sizeAx25bin>=1){
+            Log::log_packet(ax25bin,sizeAx25bin);
+          }else{
+            Log::console(PSTR("No data found in packet."));
+          }
+          packet_logged=true;
           Log::console(PSTR("Frame error!"));
+          sizeAx25bin=12;
+          char *texto = new char[13];
+          sprintf(texto,"Frame error!");
+          for (int i=0;i<(sizeAx25bin);i++){
+            ax25bin[i]=(char)texto[i];
+	        }
+          delete[] texto;
+          
           status.lastPacketInfo.crc_error = true;
         }
         //RAW packet is replaced by the processed packet.
@@ -571,7 +588,16 @@ uint8_t Radio::listen()
           crcfield=msb*256+lsb;
         }
         Log::console(PSTR("Received CRC: %X Calculated CRC: %X"),crcfield,fcs);
-        Log::log_packet(respFrame,respLen);
+        if ((  status.modeminfo.framing==1  //framing=1 -> NRZS -> AX.25 Frame
+            || status.modeminfo.framing==3  //framing=3 -> Scrambled(x17x12) -> NRZS -> AX.25  
+            ) && respLen>=16
+           ) {
+             Log::log_packet_ax25(respFrame,respLen);
+           }else{
+             if (respLen>0){ 
+                Log::log_packet(respFrame,respLen);
+             }
+           }
         packet_logged=true;
         if (fcs!=crcfield){
             status.lastPacketInfo.crc_error = true;
@@ -584,11 +610,11 @@ uint8_t Radio::listen()
             }
             delete[] cad; // Clean up cad
           }          
-        }
+        }else{Log::console(PSTR("CRC Check not performed"));}
       }
     }
 
-    if (!packet_logged){Log::log_packet(respFrame,respLen);}
+    if (!packet_logged && respLen>0){Log::log_packet(respFrame,respLen);}
 
     // if Filter enabled filter the received packet
     if (status.modeminfo.filter[0] != 0)
