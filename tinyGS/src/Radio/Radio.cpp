@@ -726,11 +726,11 @@ uint8_t Radio::listen()
   delete[] respFrame_raw;
 
   noisyInterrupt = false;
-  
-  // force doppler-recalc
-  status.tle.freqDoppler = 1; // oe6isp 99999  
 
-  tle(); // oe6isp
+  // Commented, force TLE calculation might be problem when we receive many messages in a row on FSK.
+  // // force doppler-recalc
+  // status.tle.freqDoppler = 1; // oe6isp 99999  
+  // tle(); // oe6isp
 
   // put module back to listen mode
   startRx();
