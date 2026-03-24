@@ -100,33 +100,26 @@ void Radio::init()
 
   
 
+  begin();
+
 if (board.L_radio == RADIO_LR1121)
 {
+
+
     rfswitch_pins[0] = RADIOLIB_LR11X0_DIO5;
     rfswitch_pins[1] = RADIOLIB_LR11X0_DIO6;
     rfswitch_pins[2] = RADIOLIB_LR11X0_DIO7;
     rfswitch_pins[3] = RADIOLIB_NC;
     rfswitch_pins[4] = RADIOLIB_NC;
 
-    // rfswitch_table[0] = {LR11x0::MODE_STBY,  {LOW,  LOW,  LOW }};
-    // rfswitch_table[1] = {LR11x0::MODE_RX,    {LOW,  HIGH, LOW }};
-    // rfswitch_table[2] = {LR11x0::MODE_TX,    {HIGH, HIGH, LOW }};
-    // rfswitch_table[3] = {LR11x0::MODE_TX_HP, {HIGH, LOW,  LOW }};
-    // rfswitch_table[4] = {LR11x0::MODE_TX_HF, {LOW,  LOW,  LOW }};
-    // rfswitch_table[5] = {LR11x0::MODE_GNSS,  {LOW,  LOW,  HIGH}};
-    // rfswitch_table[6] = {LR11x0::MODE_WIFI,  {LOW,  LOW,  LOW }};
-    // rfswitch_table[7] = END_OF_MODE_TABLE;
-
-
-
-  rfswitch_table[0] = {LR11x0::MODE_STBY,  {LOW,  LOW,  LOW }};   // all off
-  rfswitch_table[1] = {LR11x0::MODE_RX,    {LOW,  LOW,  LOW }};   // DIO5=0, DIO6=0 → RX ✓
-  rfswitch_table[2] = {LR11x0::MODE_TX,    {LOW,  HIGH, LOW }};   // DIO5=0, DIO6=1 → TX Sub-1GHz LP ✓  
-  rfswitch_table[3] = {LR11x0::MODE_TX_HP, {HIGH, LOW,  LOW }};   // DIO5=1, DIO6=0 → TX Sub-1GHz HP ✓
-  rfswitch_table[4] = {LR11x0::MODE_TX_HF, {HIGH, HIGH, LOW }};   // DIO5=1, DIO6=1 → TX 2.4GHz ✓
-  rfswitch_table[5] = {LR11x0::MODE_GNSS,  {LOW,  LOW,  LOW }};   // no RF path needed
-  rfswitch_table[6] = {LR11x0::MODE_WIFI,  {LOW,  LOW,  LOW }};   // no RF path needed
-  rfswitch_table[7] = END_OF_MODE_TABLE;
+    rfswitch_table[0] = {LR11x0::MODE_STBY,  {LOW,  LOW,  LOW }};
+    rfswitch_table[1] = {LR11x0::MODE_RX,    {LOW,  HIGH, LOW }};
+    rfswitch_table[2] = {LR11x0::MODE_TX,    {HIGH, HIGH, LOW }};
+    rfswitch_table[3] = {LR11x0::MODE_TX_HP, {HIGH, LOW,  LOW }};
+    rfswitch_table[4] = {LR11x0::MODE_TX_HF, {LOW,  LOW,  LOW }};
+    rfswitch_table[5] = {LR11x0::MODE_GNSS,  {LOW,  LOW,  HIGH}};
+    rfswitch_table[6] = {LR11x0::MODE_WIFI,  {LOW,  LOW,  LOW }};
+    rfswitch_table[7] = END_OF_MODE_TABLE;
 
 
 
@@ -151,7 +144,6 @@ else if (board.RX_EN != UNUSED && board.TX_EN != UNUSED)
 }
 
 
-  begin();
 
 }
 
@@ -172,7 +164,7 @@ int16_t Radio::begin()
         radioHal->autoLDRO();
       else
         radioHal->forceLDRO(m.fldro);
-      radioHal->setCRC(m.crc);
+      radioHal->setCRC(m.crc ? 2 : 0);
       radioHal->invertIQ(m.iIQ);
 
       if (m.len==0) {
@@ -219,8 +211,6 @@ int16_t Radio::begin()
   status.radio_ready = true;
   return RADIOLIB_ERR_NONE;
 }
-
-
 
 
 
@@ -531,6 +521,10 @@ uint8_t Radio::listen()
 
   struct tm *timeinfo;
   time_t currenttime = time(NULL);
+  struct timeval tv_rx;
+  gettimeofday(&tv_rx, NULL);
+  status.lastPacketInfo.unix_time = currenttime;
+  status.lastPacketInfo.usec_time = (int64_t)tv_rx.tv_usec + tv_rx.tv_sec * 1000000LL;
   if (currenttime < 0)
   {
     Log::error(PSTR("Failed to obtain time"));

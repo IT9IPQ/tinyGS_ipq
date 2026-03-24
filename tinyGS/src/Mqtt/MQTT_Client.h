@@ -56,6 +56,9 @@ struct RxPacketMessage {
   float frequencyerror;
   float freqDoppler;
   bool crc_error;
+  // Timestamps captured at reception time
+  time_t unix_time;
+  int64_t usec_time;
 };
 // Tamaño total: ~820 bytes x 10 = ~8.2KB (vs ~1KB x 10 con estructuras completas)
 
