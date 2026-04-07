@@ -127,7 +127,7 @@ jobs:
           cat "web_bin/${DIR}/manifest.json"
 
       - name: Checkout web installer repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ secrets.WEB_INSTALLER_REPO }}
           token: ${{ secrets.WEB_INSTALLER_TOKEN }}
